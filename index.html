@@ -26,7 +26,6 @@
     padding:16px;
     padding-bottom:60px;
   }
-
   h1{
     font-size:19px;
     margin:0;
@@ -38,7 +37,6 @@
     font-size:12px;
     margin-bottom:18px;
   }
-
   .tabs{
     display:flex;
     gap:6px;
@@ -70,7 +68,6 @@
     background:var(--gold);
     color:#1a1408;
   }
-
   .summary{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -98,7 +95,6 @@
   .card.wide{grid-column:1/3;}
   .card.balance .value{color:var(--red);}
   .card.balance.negative .value{color:var(--green);}
-
   .trader-box{
     background:var(--panel);
     border:1px solid var(--border);
@@ -135,14 +131,12 @@
     margin-top:8px;
   }
   .trader-edit.open{display:flex;}
-
   .search-box{
     margin-bottom:14px;
   }
   .search-box input{
     background:var(--panel);
   }
-
   .add-customer{
     display:flex;
     flex-direction:column;
@@ -161,7 +155,6 @@
     font-size:11px;
     color:var(--muted);
   }
-
   input, select{
     background:var(--panel2);
     border:1px solid var(--border);
@@ -173,7 +166,6 @@
     font-family:inherit;
   }
   input::placeholder{color:#4E6377;}
-
   button{
     background:var(--gold);
     color:#1a1408;
@@ -215,7 +207,6 @@
     opacity:0.4;
     cursor:not-allowed;
   }
-
   .customer{
     background:var(--panel);
     border:1px solid var(--border);
@@ -274,7 +265,6 @@
     transition:transform .15s;
   }
   .chevron.open{transform:rotate(180deg);}
-
   .customer-body{
     display:none;
     padding:14px;
@@ -282,7 +272,6 @@
     background:var(--bg);
   }
   .customer-body.open{display:block;}
-
   .numbers-grid{
     display:grid;
     grid-template-columns:repeat(4,1fr);
@@ -307,14 +296,12 @@
     font-weight:700;
     font-variant-numeric:tabular-nums;
   }
-
   .action-row{
     display:flex;
     gap:8px;
     margin-bottom:14px;
   }
   .action-row button{flex:1;}
-
   .section-title{
     font-size:11px;
     text-transform:uppercase;
@@ -323,7 +310,6 @@
     margin:14px 0 6px 0;
     font-weight:600;
   }
-
   .new-entry-box{
     background:var(--panel2);
     border:1px solid var(--border);
@@ -372,7 +358,6 @@
   .new-entry-box .save-btn{
     width:100%;
   }
-
   .entry-list{
     display:flex;
     flex-direction:column;
@@ -398,7 +383,6 @@
     line-height:1;
     flex-shrink:0;
   }
-
   .empty{
     text-align:center;
     color:var(--muted);
@@ -410,7 +394,6 @@
     font-size:12px;
     padding:8px 0;
   }
-
   .qtag{
     font-size:10px;
     padding:2px 6px;
@@ -419,7 +402,6 @@
     color:var(--muted);
   }
   .qtag.paid{color:var(--blue); background:#16283A;}
-
   .modal-overlay{
     display:none;
     position:fixed;
@@ -545,19 +527,9 @@
 </div>
 
 <script>
-// ========== FIX: localStorage wrapper for window.storage ==========
-if (!window.storage) {
-  window.storage = {
-    get: async (key) => {
-      const val = localStorage.getItem(key);
-      return { value: val };
-    },
-    set: async (key, value) => {
-      localStorage.setItem(key, value);
-    }
-  };
-}
-// =================================================================
+// ============================================================
+//  DIRECT localStorage - No async wrapper, simple and reliable
+// ============================================================
 
 let data = { sale: [], purchase: [] };
 let currentTab = 'sale';
@@ -569,13 +541,12 @@ let entryFormOpenFor = null;
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
-async function loadTraderName(){
+// ----- Trader Name -----
+function loadTraderName(){
   try{
-    const res = await window.storage.get('arecanut-trader-name');
-    if(res && res.value){
-      traderName = res.value;
-    }
-  }catch(e){ /* not set yet */ }
+    const val = localStorage.getItem('arecanut-trader-name');
+    if(val) traderName = val;
+  }catch(e){}
   renderTraderBox();
 }
 
@@ -597,30 +568,27 @@ function editTrader(){
   document.getElementById('traderNameInput').focus();
 }
 
-async function saveTrader(){
+function saveTrader(){
   const val = document.getElementById('traderNameInput').value.trim();
   traderName = val;
   try{
-    await window.storage.set('arecanut-trader-name', traderName);
-    await window.storage.set('share-trader-name', traderName, true);
-  }catch(e){
-    console.error('Could not save trader name', e);
-  }
+    localStorage.setItem('arecanut-trader-name', traderName);
+    localStorage.setItem('share-trader-name', traderName);
+  }catch(e){}
   renderTraderBox();
 }
 
-async function loadData(){
+// ----- Data load / save -----
+function loadData(){
   try{
-    const res = await window.storage.get('arecanut-ledger-data-v3');
-    if(res && res.value){
-      data = JSON.parse(res.value);
-    }
-  }catch(e){
-    // try migrating from v2 (separate bills/payments arrays)
-    try{
-      const old = await window.storage.get('arecanut-ledger-data-v2');
-      if(old && old.value){
-        const parsed = JSON.parse(old.value);
+    const raw = localStorage.getItem('arecanut-ledger-data-v3');
+    if(raw){
+      data = JSON.parse(raw);
+    } else {
+      // try migrating from v2
+      const old = localStorage.getItem('arecanut-ledger-data-v2');
+      if(old){
+        const parsed = JSON.parse(old);
         const migrate = (arr) => (arr||[]).map(c => {
           const txns = [];
           (c.bills||[]).forEach(b => txns.push({id:b.id, date:b.date, billAmt:b.billAmt||0, gstAmt:b.gstAmt||0, paidAmt:0}));
@@ -629,24 +597,34 @@ async function loadData(){
           return {id:c.id, name:c.name, phone:c.phone||'', transactions:txns};
         });
         data = { sale: migrate(parsed.sale), purchase: migrate(parsed.purchase) };
-        await saveData();
+        saveData();
       }
-    }catch(e2){
-      console.log('Starting fresh ledger');
     }
+  }catch(e){
+    console.log('Starting fresh ledger');
   }
   loaded = true;
   render();
 }
 
-async function saveData(){
+function saveData(){
   try{
-    await window.storage.set('arecanut-ledger-data-v3', JSON.stringify(data));
-  }catch(e){
-    console.error('Save failed', e);
-  }
+    localStorage.setItem('arecanut-ledger-data-v3', JSON.stringify(data));
+  }catch(e){}
 }
 
+// ----- Share view sync (synchronous) -----
+function syncSharedView(tab, customer){
+  try{
+    localStorage.setItem(`share-${tab}-${customer.id}`, JSON.stringify({
+      customerName: customer.name,
+      phone: customer.phone,
+      transactions: customer.transactions
+    }));
+  }catch(e){}
+}
+
+// ----- Tabs -----
 function switchTab(tab){
   currentTab = tab;
   openCustomerId = null;
@@ -654,6 +632,7 @@ function switchTab(tab){
   render();
 }
 
+// ----- Contacts -----
 async function pickContact(){
   try{
     if('contacts' in navigator && 'ContactsManager' in window){
@@ -673,6 +652,7 @@ async function pickContact(){
   }
 }
 
+// ----- Add Customer -----
 function addCustomer(){
   const nameInput = document.getElementById('newCustomerName');
   const phoneInput = document.getElementById('newCustomerPhone');
@@ -708,6 +688,7 @@ function addCustomer(){
   if(rowEl) rowEl.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
+// ----- Delete Customer -----
 function deleteCustomer(id){
   if(!confirm('Delete this customer and all their entries?')) return;
   data[currentTab] = data[currentTab].filter(c=>c.id!==id);
@@ -715,11 +696,13 @@ function deleteCustomer(id){
   render();
 }
 
+// ----- Toggle Customer -----
 function toggleCustomer(id){
   openCustomerId = openCustomerId === id ? null : id;
   render();
 }
 
+// ----- Toggle Entry Form -----
 function toggleEntryForm(id){
   entryFormOpenFor = entryFormOpenFor === id ? null : id;
   render();
@@ -729,6 +712,7 @@ function toggleEntryForm(id){
   }
 }
 
+// ----- GST Preview -----
 function updateGstPreview(customerId){
   const billEl = document.getElementById('entry-bill-'+customerId);
   const pctEl = document.getElementById('entry-gstpct-'+customerId);
@@ -742,6 +726,7 @@ function updateGstPreview(customerId){
   if(totalEl) totalEl.textContent = fmt(total);
 }
 
+// ----- Save Entry -----
 function saveEntry(customerId){
   const dateEl = document.getElementById('entry-date-'+customerId);
   const billEl = document.getElementById('entry-bill-'+customerId);
@@ -772,16 +757,9 @@ function saveEntry(customerId){
   render();
 }
 
-async function syncSharedView(tab, customer){
-  try{
-    await window.storage.set(`share-${tab}-${customer.id}`, JSON.stringify({
-      customerName: customer.name,
-      phone: customer.phone,
-      transactions: customer.transactions
-    }), true);
-  }catch(e){
-    console.error('Could not sync share link data', e);
-  }
-}
-
-f
+// ----- Delete Entry -----
+function deleteEntry(customerId, entryId){
+  const customer = data[currentTab].find(c=>c.id===customerId);
+  customer.transactions = customer.transactions.filter(t=>t.id!==entryId);
+  saveData();
+  syncSharedView(currentT
