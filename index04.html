@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger - Bill Wise</title>
+<style>
+  :root{
+    --bg:#0B1420;
+    --panel:#131F2E;
+    --panel2:#1A2938;
+    --border:#243547;
+    --gold:#D4A64A;
+    --green:#3ECF7E;
+    --red:#F0665F;
+    --text:#EAF0F6;
+    --muted:#7E93A7;
+    --blue:#5DA3E0;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    padding:16px;
+    padding-bottom:60px;
+  }
+  h1{font-size:19px; margin:0; font-weight:700;}
+  .sub{color:var(--muted); font-size:12px; margin-bottom:18px;}
+  .tabs{display:flex; gap:6px; margin-bottom:16px; background:var(--panel); padding:4px; border-radius:10px; border:1px solid var(--border);}
+  .tab{flex:1; text-align:center; padding:11px 6px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; color:var(--muted);}
+  .tab.active{background:var(--gold); color:#1a1408;}
+  .tab .tab-sub{display:block; font-size:10px; font-weight:400; margin-top:1px; opacity:0.75;}
+  .summary{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:18px;}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px;}
+  .card .label{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:4px;}
+  .card .value{font-size:18px; font-weight:700;}
+  .card.wide{grid-column:1/3;}
+  .card.balance .value{color:var(--red);}
+  .card.balance.negative .value{color:var(--green);}
+  .card.gold .value{color:var(--gold);}
+  .trader-box{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:14px;}
+  .trader-display{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .trader-label{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:3px;}
+  .trader-name{font-size:15px; font-weight:700; color:var(--gold);}
+  .trader-name.placeholder{color:var(--muted); font-weight:400; font-size:13px;}
+  .trader-edit{display:none; gap:8px; margin-top:8px;}
+  .trader-edit.open{display:flex;}
+  .search-box{margin-bottom:14px;}
+  .search-box input{background:var(--panel);}
+  .add-customer{display:flex; flex-direction:column; gap:8px; margin-bottom:18px; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px;}
+  .add-customer-row{display:flex; gap:8px;}
+  .add-customer .hint{font-size:11px; color:var(--muted);}
+  input, select{background:var(--panel2); border:1px solid var(--border); color:var(--text); padding:10px; border-radius:8px; font-size:14px; width:100%; font-family:inherit;}
+  input::placeholder{color:#4E6377;}
+  button{background:var(--gold); color:#1a1408; border:none; padding:10px 16px; border-radius:8px; font-weight:600; font-size:14px; cursor:pointer; white-space:nowrap; font-family:inherit;}
+  button.secondary{background:var(--panel2); color:var(--text); border:1px solid var(--border);}
+  button.danger{background:#2A1414; color:var(--red); border:1px solid #4A2020;}
+  button.whatsapp{background:#1F3A2C; color:#4FD07C; border:1px solid #2C5240;}
+  button.contact-btn{background:var(--panel2); color:var(--gold); border:1px solid var(--border); flex-shrink:0;}
+  button.small{padding:7px 10px; font-size:12px;}
+  button:disabled{opacity:0.4; cursor:not-allowed;}
+  .customer{background:var(--panel); border:1px solid var(--border); border-radius:10px; margin-bottom:8px; overflow:hidden;}
+  .customer-row{display:flex; align-items:center; justify-content:space-between; padding:13px 14px; cursor:pointer; gap:10px;}
+  .customer-identity{display:flex; flex-direction:column; min-width:0; flex:1;}
+  .customer-name{font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .customer-phone{font-size:11px; color:var(--muted); margin-top:1px;}
+  .customer-balance-block{text-align:right; flex-shrink:0;}
+  .customer-balance-block .amt{font-weight:700; font-size:15px;}
+  .customer-balance-block .tag{font-size:9.5px; text-transform:uppercase; letter-spacing:0.4px; color:var(--muted);}
+  .amt.owe{color:var(--red);}
+  .amt.clear{color:var(--muted);}
+  .amt.credit{color:var(--green);}
+  .chevron{color:var(--muted); font-size:11px; flex-shrink:0; transition:transform .15s;}
+  .chevron.open{transform:rotate(180deg);}
+  .customer-body{display:none; padding:14px; border-top:1px solid var(--border); background:var(--bg);}
+  .customer-body.open{display:block;}
+  .numbers-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:12px;}
+  .num-box{background:var(--panel2); border-radius:8px; padding:8px 6px; text-align:center;}
+  .num-box .lbl{font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:3px;}
+  .num-box .val{font-size:13px; font-weight:700;}
+  .num-box.fully-paid{background:#1a2a1a; border:1px solid var(--green);}
+  .num-box.fully-paid .val{color:var(--green);}
+  .action-row{display:flex; gap:8px; margin-bottom:14px;}
+  .action-row button{flex:1;}
+  .section-title{font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); margin:14px 0 6px 0; font-weight:600;}
+  .section-title .badge{font-size:10px; background:var(--green); color:#000; padding:2px 10px; border-radius:12px; margin-left:8px; text-transform:none;}
+  .bill-card{background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:8px;}
+  .bill-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;}
+  .bill-number{font-weight:700; color:var(--gold);}
+  .bill-date{font-size:11px; color:var(--muted);}
+  .bill-stats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; font-size:12px; margin:6px 0;}
+  .bill-stats div{text-align:center; background:var(--bg); border-radius:4px; padding:4px;}
+  .bill-stats .bal{color:var(--red);}
+  .bill-stats .bal.zero{color:var(--green);}
+  .bill-payments{margin-top:6px; font-size:12px;}
+  .bill-payments .payment-row{display:flex; justify-content:space-between; padding:4px 6px; border-bottom:1px solid var(--border);}
+  .bill-payments .payment-row .pdate{color:var(--muted);}
+  .bill-payments .payment-row .pamount{font-weight:600; color:var(--blue);}
+  .add-bill-section, .add-payment-section{background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px;}
+  .add-bill-section .row, .add-payment-section .row{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:6px;}
+  .add-bill-section .row.full, .add-payment-section .row.full{grid-template-columns:1fr;}
+  .add-bill-section .field-label, .add-payment-section .field-label{font-size:10px; color:var(--muted); display:block; margin-bottom:3px;}
+  .btn-sm{font-size:12px; padding:6px 12px;}
+  .empty{text-align:center; color:var(--muted); padding:36px 10px; font-size:13px;}
+  .modal-overlay{display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:flex-end; justify-content:center;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--panel); border:1px solid var(--border); border-radius:16px 16px 0 0; padding:20px 16px calc(20px + env(safe-area-inset-bottom)); width:100%; max-width:480px;}
+  .modal h3{margin:0 0 4px 0; font-size:16px;}
+  .modal .modal-sub{color:var(--muted); font-size:12px; margin-bottom:14px;}
+  .modal textarea{width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px; font-size:13px; font-family:inherit; min-height:150px; resize:vertical; margin-bottom:12px;}
+  .modal-actions{display:flex; gap:8px;}
+  .modal-actions button{flex:1;}
+  #shareLinkText{font-size:11px; min-height:60px;}
+  .extra-tag{color:var(--gold); background:#2a2a1a; padding:0 6px; border-radius:4px; font-size:11px;}
+</style>
+</head>
+<body>
+
+<div id="customerViewApp" style="display:none;"></div>
+
+<div id="adminApp">
+<h1>Arecanut Ledger</h1>
+<div class="sub">Bill-wise tracking with optional extra amount (no GST)</div>
+
+<div class="trader-box">
+  <div class="trader-display" id="traderDisplay">
+    <div>
+      <div class="trader-label">Business / Trader Name</div>
+      <div class="trader-name placeholder" id="traderNameText">Tap Edit to set your business name</div>
+    </div>
+    <button class="secondary small" onclick="editTrader()">Edit</button>
+  </div>
+  <div class="trader-edit" id="traderEdit">
+    <input type="text" id="traderNameInput" placeholder="e.g. SFS Traders">
+    <button class="small" onclick="saveTrader()">Save</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="sale" onclick="switchTab('sale')">
+    Sale Bills<span class="tab-sub">Customer owes you</span>
+  </div>
+  <div class="tab" data-tab="purchase" onclick="switchTab('purchase')">
+    Purchase Bills<span class="tab-sub">You owe supplier</span>
+  </div>
+</div>
+
+<div class="summary" id="summary"></div>
+
+<div class="add-customer">
+  <div class="add-customer-row">
+    <input type="text" id="newCustomerName" placeholder="Customer name">
+  </div>
+  <div class="add-customer-row">
+    <input type="tel" id="newCustomerPhone" placeholder="Phone number (optional)">
+    <button class="contact-btn" onclick="pickContact()">From Contacts</button>
+  </div>
+  <button onclick="addCustomer()">Add Customer</button>
+  <div class="hint">Add phone number to send ledger details on WhatsApp later.</div>
+</div>
+
+<div class="search-box">
+  <input type="text" id="searchBox" placeholder="Search customer by name or phone" oninput="render()">
+</div>
+
+<div id="customerList"></div>
+</div>
+
+<!-- WhatsApp Modal -->
+<div class="modal-overlay" id="waModal">
+  <div class="modal">
+    <h3>Send on WhatsApp</h3>
+    <div class="modal-sub" id="waSub"></div>
+    <textarea id="waText" readonly></textarea>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeWaModal()">Cancel</button>
+      <button class="whatsapp" id="waOpenBtn" onclick="openWhatsApp()">Open WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal">
+    <h3>Customer View Link</h3>
+    <div class="modal-sub">This link shows only this customer's own bills and payments.</div>
+    <textarea id="shareLinkText" readonly></textarea>
+    <div class="modal-sub" style="margin-top:-6px; margin-bottom:12px;">✅ Data is encoded in the link itself – works even on other devices.</div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeShareModal()">Cancel</button>
+      <button class="whatsapp" id="shareWaBtn" onclick="shareViaWhatsApp()">Send via WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  BILL-WISE TRACKING + Optional Amount (no GST)
+// ============================================================
+
+let data = { sale: [], purchase: [] };
+let currentTab = 'sale';
+let openCustomerId = null;
+let loaded = false;
+let waPendingPhone = '';
+let traderName = '';
+let billFormOpen = null;
+let paymentFormOpen = null;
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// ----- Trader Name -----
+function loadTraderName(){
+  try{
+    const val = localStorage.getItem('arecanut-trader-name');
+    if(val) traderName = val;
+  }catch(e){}
+  renderTraderBox();
+}
+
+function renderTraderBox(){
+  const textEl = document.getElementById('traderNameText');
+  if(traderName){
+    textEl.textContent = traderName;
+    textEl.classList.remove('placeholder');
+  } else {
+    textEl.textContent = 'Tap Edit to set your business name';
+    textEl.classList.add('placeholder');
+  }
+  document.getElementById('traderEdit').classList.remove('open');
+}
+
+function editTrader(){
+  document.getElementById('traderEdit').classList.add('open');
+  document.getElementById('traderNameInput').value = traderName;
+  document.getElementById('traderNameInput').focus();
+}
+
+function saveTrader(){
+  const val = document.getElementById('traderNameInput').value.trim();
+  traderName = val;
+  try{
+    localStorage.setItem('arecanut-trader-name', traderName);
+    localStorage.setItem('share-trader-name', traderName);
+  }catch(e){}
+  renderTraderBox();
+}
+
+// ----- Data load / save (migration) -----
+function loadData(){
+  try{
+    const raw = localStorage.getItem('arecanut-ledger-data-v5');
+    if(raw){
+      data = JSON.parse(raw);
+    } else {
+      // migrate from v4 (no extraAmt)
+      const old = localStorage.getItem('arecanut-ledger-data-v4');
+      if(old){
+        const parsed = JSON.parse(old);
+        // add extraAmt: 0 to each bill
+        parsed.sale.forEach(c => {
+          c.bills.forEach(b => {
+            if(b.extraAmt === undefined) b.extraAmt = 0;
+            // recalc total if missing
+            if(b.total === undefined) b.total = b.billAmt + (b.gstAmt || 0) + (b.extraAmt || 0);
+          });
+        });
+        parsed.purchase.forEach(c => {
+          c.bills.forEach(b => {
+            if(b.extraAmt === undefined) b.extraAmt = 0;
+            if(b.total === undefined) b.total = b.billAmt + (b.gstAmt || 0) + (b.extraAmt || 0);
+          });
+        });
+        data = parsed;
+        saveData();
+      }
+    }
+  }catch(e){}
+  loaded = true;
+  render();
+}
+
+function saveData(){
+  try{
+    localStorage.setItem('arecanut-ledger-data-v5', JSON.stringify(data));
+  }catch(e){}
+}
+
+function syncSharedView(tab, customer){
+  try{
+    localStorage.setItem(`share-${tab}-${customer.id}`, JSON.stringify({
+      customerName: customer.name,
+      phone: customer.phone,
+      bills: customer.bills
+    }));
+  }catch(e){}
+}
+
+// ----- Tabs -----
+function switchTab(tab){
+  currentTab = tab;
+  openCustomerId = null;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  render();
+}
+
+// ----- Contacts -----
+async function pickContact(){
+  try{
+    if('contacts' in navigator && 'ContactsManager' in window){
+      const props = ['name','tel'];
+      const opts = {multiple:false};
+      const contacts = await navigator.contacts.select(props, opts);
+      if(contacts && contacts.length){
+        const c = contacts[0];
+        if(c.name && c.name[0]) document.getElementById('newCustomerName').value = c.name[0];
+        if(c.tel && c.tel[0]) document.getElementById('newCustomerPhone').value = c.tel[0];
+      }
+    } else {
+      alert('Contact import not available.');
+    }
+  }catch(e){ alert('Could not open contacts.'); }
+}
+
+// ----- Add Customer -----
+function addCustomer(){
+  const nameInput = document.getElementById('newCustomerName');
+  const phoneInput = document.getElementById('newCustomerPhone');
+  const name = nameInput.value.trim();
+  const phone = phoneInput.value.trim();
+  if(!name) return;
+
+  const existing = data[currentTab].find(c => c.name.trim().toLowerCase() === name.toLowerCase());
+  if(existing){
+    if(phone && !existing.phone) existing.phone = phone;
+    nameInput.value = '';
+    phoneInput.value = '';
+    openCustomerId = existing.id;
+    saveData();
+    syncSharedView(currentTab, existing);
+    render();
+    const rowEl = document.getElementById('customer-'+existing.id);
+    if(rowEl) rowEl.scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+
+  const newCustomer = { id: uid(), name, phone, bills: [] };
+  data[currentTab].push(newCustomer);
+  nameInput.value = '';
+  phoneInput.value = '';
+  openCustomerId = newCustomer.id;
+  saveData();
+  syncSharedView(currentTab, newCustomer);
+  render();
+  const rowEl = document.getElementById('customer-'+newCustomer.id);
+  if(rowEl) rowEl.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+// ----- Delete Customer -----
+function deleteCustomer(id){
+  if(!confirm('Delete this customer and all their bills?')) return;
+  data[currentTab] = data[currentTab].filter(c=>c.id!==id);
+  saveData();
+  render();
+}
+
+// ----- Toggle Customer -----
+function toggleCustomer(id){
+  openCustomerId = openCustomerId === id ? null : id;
+  billFormOpen = null;
+  paymentFormOpen = null;
+  render();
+}
+
+// ----- Toggle Bill Form -----
+function toggleBillForm(id){
+  billFormOpen = (billFormOpen === id) ? null : id;
+  paymentFormOpen = null;
+  render();
+  if(billFormOpen === id){
+    const customer = data[currentTab].find(c=>c.id===id);
+    const nextNum = customer.bills.length + 1;
+    document.getElementById('bill-number-'+id).value = nextNum.toString().padStart(2,'0');
+  }
+}
+
+function togglePaymentForm(id){
+  paymentFormOpen = (paymentFormOpen === id) ? null : id;
+  billFormOpen = null;
+  render();
+  if(paymentFormOpen === id){
+    populateBillDropdown(id);
+  }
+}
+
+function populateBillDropdown(customerId){
+  const customer = data[currentTab].find(c=>c.id===customerId);
+  const select = document.getElementById('payment-bill-'+customerId);
+  if(!select) return;
+  const options = customer.bills.map(b => {
+    const totalPaid = b.payments.reduce((s,p)=>s+p.amount,0);
+    const balance = b.total - totalPaid;
+    return { bill: b, balance };
+  }).filter(item => item.balance > 0);
+  select.innerHTML = options.map(item => 
+    `<option value="${item.bill.id}">${item.bill.billNumber} (Bal: ${fmt(item.balance)})</option>`
+  ).join('');
+  if(options.length === 0){
+    select.innerHTML = `<option value="">No pending bills</option>`;
+  }
+}
+
+// ----- Add Bill (with optional amount) -----
+function addBill(customerId){
+  const customer = data[currentTab].find(c=>c.id===customerId);
+  if(!customer) return;
+
+  const billNum = document.getElementById('bill-number-'+customerId).value.trim();
+  const date = document.getElementById('bill-date-'+customerId).value;
+  const billAmt = parseFloat(document.getElementById('bill-amount-'+customerId).value) || 0;
+  const gstPct = parseFloat(document.getElementById('bill-gstpct-'+customerId).value) || 0;
+  const extraAmt = parseFloat(document.getElementById('bill-extra-'+customerId).value) || 0;
+  const gstAmt = Math.round((billAmt * gstPct / 100) * 100) / 100;
+  const total = billAmt + gstAmt + extraAmt;
+
+  if(billAmt <= 0){
+    alert('Bill amount must be greater than 0');
+    return;
+  }
+  if(!billNum){
+    alert('Please enter a bill number');
+    return;
+  }
+  if(customer.bills.some(b => b.billNumber === billNum)){
+    alert('Bill number already exists. Use a unique number.');
+    return;
+  }
+
+  customer.bills.push({
+    id: uid(),
+    billNumber: billNum,
+    date: date || new Date().toISOString().slice(0,10),
+    billAmt: billAmt,
+    gstAmt: gstAmt,
+    extraAmt: extraAmt,
+    total: total,
+    payments: []
+  });
+
+  document.getElementById('bill-number-'+customerId).value = '';
+  document.getElementById('bill-amount-'+customerId).value = '';
+  document.getElementById('bill-gstpct-'+customerId).value = '';
+  document.getElementById('bill-extra-'+customerId).value = '';
+
+  saveData();
+  syncSharedView(currentTab, customer);
+  billFormOpen = null;
+  render();
+}
+
+// ----- Add Payment -----
+function addPayment(customerId){
+  const customer = data[currentTab].find(c=>c.id===customerId);
+  if(!customer) return;
+
+  const billId = document.getElementById('payment-bill-'+customerId).value;
+  const date = document.getElementById('payment-date-'+customerId).value;
+  const amount = parseFloat(document.getElementById('payment-amount-'+customerId).value) || 0;
+
+  if(!billId || billId === ''){
+    alert('Please select a bill with pending balance.');
+    return;
+  }
+  if(amount <= 0){
+    alert('Payment amount must be greater than 0');
+    return;
+  }
+
+  const bill = customer.bills.find(b => b.id === billId);
+  if(!bill) return;
+
+  const totalPaid = bill.payments.reduce((s,p)=>s+p.amount,0);
+  const balance = bill.total - totalPaid;
+  if(amount > balance){
+    alert(`Payment amount (${fmt(amount)}) exceeds pending balance (${fmt(balance)}).`);
+    return;
+  }
+
+  bill.payments.push({
+    id: uid(),
+    date: date || new Date().toISOString().slice(0,10),
+    amount: amount
+  });
+
+  document.getElementById('payment-amount-'+customerId).value = '';
+  saveData();
+  syncSharedView(currentTab, customer);
+  paymentFormOpen = null;
+  render();
+}
+
+// ----- Delete Payment -----
+function deletePayment(customerId, billId, paymentId){
+  if(!confirm('Delete this payment?')) return;
+  const customer = data[currentTab].find(c=>c.id===customerId);
+  const bill = customer.bills.find(b=>b.id===billId);
+  if(!bill) return;
+  bill.payments = bill.payments.filter(p=>p.id!==paymentId);
+  saveData();
+  syncSharedView(currentTab, customer);
+  render();
+}
+
+// ----- Delete Bill -----
+function deleteBill(customerId, billId){
+  if(!confirm('Delete this bill and all its payments?')) return;
+  const customer = data[currentTab].find(c=>c.id===customerId);
+  customer.bills = customer.bills.filter(b=>b.id!==billId);
+  saveData();
+  syncSharedView(currentTab, customer);
+  render();
+}
+
+// ----- Totals (aggregate over bills) -----
+function customerTotals(c){
+  let totalBill = 0, totalGst = 0, totalExtra = 0, totalPaid = 0;
+  c.bills.forEach(b => {
+    totalBill += b.billAmt;
+    totalGst += b.gstAmt;
+    totalExtra += b.extraAmt || 0;
+    const paid = b.payments.reduce((s,p)=>s+p.amount,0);
+    totalPaid += paid;
+  });
+  const totalDue = totalBill + totalGst + totalExtra;
+  const balance = totalDue - totalPaid;
+  return { totalBill, totalGst, totalExtra, totalDue, totalPaid, balance };
+}
+
+function fmt(n){
+  return '\u20B9' + (n||0).toLocaleString('en-IN', {maximumFractionDigits:2});
+}
+
+// ----- WhatsApp Modal -----
+function openWaModal(customerId){
+  const customer = data[currentTab].find(c=>c.id===customerId);
+  const t = customerTotals(customer);
+  const direction = currentTab==='sale' ? 'Balance Due' : 'Balance Payable to You';
+  let balanceLine = 'Balance: Clear';
+  if(t.balance > 0) balanceLine = `${direction}: ${fmt(t.balance)}`;
+  else if(t.balance < 0) balanceLine = `Advance Paid: ${fmt(Math.abs(t.balance))}`;
+
+  const header = traderName ? `*${traderName}*` : `*Trading Account*`;
+
+  const lines = [
+    header,
+    `Customer: ${customer.name}`,
+    ``,
+    `Total Bill Amount: ${fmt(t.totalBill)}`,
+    `Total GST Amount: ${fmt(t.totalGst)}`,
+    `Extra Amount (no GST): ${fmt(t.totalExtra)}`,
+    `Total Amount: ${fmt(t.totalDue)}`,
+    `Total Paid: ${fmt(t.totalPaid)}`,
+    ``,
+    balanceLine
+  ];
+  document.getElementById('waText').value = lines.join('\n');
+  document.getElementById('waSub').textContent = customer.phone
+    ? `To: ${customer.name} (${customer.phone})`
+    : `To: ${customer.name} — no phone number.`;
+  waPendingPhone = (customer.phone || '').replace(/[^0-9]/g,'');
+  document.getElementById('waOpenBtn').disabled = !waPendingPhone;
+  document.getElementById('waModal').classList.add('open');
+}
+
+function closeWaModal(){
+  document.getElementById('waModal').classList.remove('open');
+}
+
+function openWhatsApp(){
+  const text = encodeURIComponent(document.getElementById('waText').value);
+  let phone = waPendingPhone;
+  if(phone.length === 10) phone = '91' + phone;
+  window.open(`https://wa.me/${phone}?text=${text}`, '_blank');
+  closeWaModal();
+}
+
+// ----- Share Modal -----
+let shareModalPhone = '';
+
+function openShareModal(customerId){
+  const customer = data[currentTab].find(c=>c.id===customerId);
+  syncSharedView(currentTab, customer);
+  const shareData = {
+    traderName: traderName,
+    customerName: customer.name,
+    phone: customer.phone,
+    bills: customer.bills
+  };
+  const encodedData = encodeURIComponent(JSON.stringify(shareData));
+  const url = `${window.location.origin}${window.location.pathname}?view=${customer.id}&tab=${currentTab}&data=${encodedData}`;
+  document.getElementById('shareLinkText').value = url;
+  shareModalPhone = (customer.phone || '').replace(/[^0-9]/g,'');
+  document.getElementById('shareModal').classList.add('open');
+}
+
+function closeShareModal(){
+  document.getElementById('shareModal').classList.remove('open');
+}
+
+function shareViaWhatsApp(){
+  const url = document.getElementById('shareLinkText').value;
+  const text = encodeURIComponent(`Here is your account details link:\n${url}`);
+  let phone = shareModalPhone;
+  if(phone.length === 10) phone = '91' + phone;
+  const target = phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
+  window.open(target, '_blank');
+  closeShareModal();
+}
+
+// ----- Render -----
+function render(){
+  if(!loaded) return;
+  const fullList = data[currentTab];
+  const searchEl = document.getElementById('searchBox');
+  const q = searchEl ? searchEl.value.trim().toLowerCase() : '';
+  const list = q ? fullList.filter(c =>
+    c.name.toLowerCase().includes(q) || (c.phone||'').toLowerCase().includes(q)
+  ) : fullList;
+
+  let sumBill=0, sumGst=0, sumExtra=0, sumPaid=0, sumBalancePositive=0, sumBalanceNegative=0;
+  fullList.forEach(c=>{
+    const t = customerTotals(c);
+    sumBill += t.totalBill;
+    sumGst += t.totalGst;
+    sumExtra += t.totalExtra;
+    sumPaid += t.totalPaid;
+    if(t.balance>0) sumBalancePositive += t.balance;
+    else sumBalanceNegative += Math.abs(t.balance);
+  });
+  const sumTotal = sumBill + sumGst + sumExtra;
+  const label = currentTab==='sale' ? 'Balance Receivable' : 'Balance Payable';
+
+  document.getElementById('summary').innerHTML = `
+    <div class="card"><div class="label">Total Bill Amount</div><div class="value">${fmt(sumBill)}</div></div>
+    <div class="card"><div class="label">Total GST</div><div class="value">${fmt(sumGst)}</div></div>
+    <div class="card"><div class="label">Total Extra (no GST)</div><div class="value" style="color:var(--gold)">${fmt(sumExtra)}</div></div>
+    <div class="card wide gold"><div class="label">Total Amount (Bill+GST+Extra)</div><div class="value">${fmt(sumTotal)}</div></div>
+    <div class="card"><div class="label">Total ${currentTab==='sale'?'Received':'Paid'}</div><div class="value" style="color:var(--blue)">${fmt(sumPaid)}</div></div>
+    <div class="card balance"><div class="label">${label}</div><div class="value">${fmt(sumBalancePositive)}</div></div>
+    ${sumBalanceNegative>0 ? `<div class="card wide balance negative"><div class="label">Advance / Overpaid</div><div class="value">${fmt(sumBalanceNegative)}</div></div>` : ''}
+  `;
+
+  if(list.length===0){
+    const msg = q ? `No customer matches "${q}".` : 'No customers yet. Add one above.';
+    document.getElementById('customerList').innerHTML = `<div class="empty">${msg}</div>`;
+    return;
+  }
+
+  document.getElementById('customerList').innerHTML = list.map(c=>{
+    const t = customerTotals(c);
+    const isOpen = openCustomerId === c.id;
+    const isFullyPaid = t.balance === 0 && t.totalDue > 0;
+    let balClass = 'clear', balTag = 'Clear', balVal = fmt(0);
+    if(t.balance > 0){ balClass='owe'; balTag = currentTab==='sale'?'Receivable':'Payable'; balVal = fmt(t.balance); }
+    else if(t.balance < 0){ balClass='credit'; balTag = 'Advance'; balVal = fmt(Math.abs(t.balance)); }
+    else if(t.balance === 0 && t.totalDue > 0){ balClass='clear'; balTag = '✅ Paid'; balVal = fmt(0); }
+
+    const billsHtml = c.bills.length ? c.bills.map(b => {
+      const totalPaid = b.payments.reduce((s,p)=>s+p.amount,0);
+      const balance = b.total - totalPaid;
+      const balClass = balance === 0 ? 'zero' : '';
+      const paymentsHtml = b.payments.length ? b.payments.map(p => `
+        <div class="payment-row">
+          <span class="pdate">${p.date}</span>
+          <span class="pamount">${fmt(p.amount)}</span>
+          <span style="cursor:pointer; color:var(--red);" onclick="deletePayment('${c.id}','${b.id}','${p.id}')">&times;</span>
+        </div>
+      `).join('') : '<div style="color:var(--muted); font-size:11px;">No payments yet</div>';
+
+      return `
+        <div class="bill-card">
+          <div class="bill-header">
+            <span class="bill-number">Bill #${b.billNumber}</span>
+            <span class="bill-date">${b.date}</span>
+            <button class="danger btn-sm" onclick="deleteBill('${c.id}','${b.id}')" style="font-size:10px; padding:2px 6px;">Delete</button>
+          </div>
+          <div class="bill-stats">
+            <div>Bill: ${fmt(b.billAmt)}</div>
+            <div>GST: ${fmt(b.gstAmt)}</div>
+            <div>Extra: <span class="extra-tag">${fmt(b.extraAmt||0)}</span></div>
+          </div>
+          <div class="bill-stats">
+            <div>Total: ${fmt(b.total)}</div>
+            <div>Paid: ${fmt(totalPaid)}</div>
+            <div class="bal ${balClass}">Balance: ${fmt(balance)}</div>
+          </div>
+          <div class="bill-payments">
+            <div style="font-size:10px; color:var(--muted); margin-bottom:2px;">Payments:</div>
+            ${paymentsHtml}
+          </div>
+        </div>
+      `;
+    }).join('') : '<div class="empty-entries">No bills added yet.</div>';
+
+    const billFormHtml = `
+      <div class="add-bill-section">
+        <div class="row">
+          <div>
+            <span class="field-label">Bill Number</span>
+            <input type="text" id="bill-number-${c.id}" placeholder="e.g. 01">
+          </div>
+          <div>
+            <span class="field-label">Date</span>
+            <input type="date" id="bill-date-${c.id}">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <span class="field-label">Bill Amount (GST applicable)</span>
+            <input type="number" id="bill-amount-${c.id}" placeholder="0" step="0.01">
+          </div>
+          <div>
+            <span class="field-label">GST %</span>
+            <input type="number" id="bill-gstpct-${c.id}" placeholder="0" step="0.01">
+          </div>
+        </div>
+        <div class="row full">
+          <div>
+            <span class="field-label">Optional Extra Amount (no GST)</span>
+            <input type="number" id="bill-extra-${c.id}" placeholder="0" step="0.01">
+          </div>
+        </div>
+        <button class="save-btn" onclick="addBill('${c.id}')">Add Bill</button>
+      </div>
+    `;
+
+    const paymentFormHtml = `
+      <div class="add-payment-section">
+        <div class="row full">
+          <div>
+            <span class="field-label">Select Bill</span>
+            <select id="payment-bill-${c.id}"></select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <span class="field-label">Date</span>
+            <input type="date" id="payment-date-${c.id}">
+          </div>
+          <div>
+            <span class="field-label">Payment Amount</span>
+            <input type="number" id="payment-amount-${c.id}" placeholder="0" step="0.01">
+          </div>
+        </div>
+        <button class="save-btn" onclick="addPayment('${c.id}')">Add Payment</button>
+      </div>
+    `;
+
+    return `
+      <div class="customer" id="customer-${c.id}">
+        <div class="customer-row" onclick="toggleCustomer('${c.id}')">
+          <div class="customer-identity"><div class="customer-name">${c.name}</div>${c.phone ? `<div class="customer-phone">${c.phone}</div>` : ''}</div>
+          <div class="customer-balance-block">
+            <div class="amt ${balClass}">${balVal}</div>
+            <div class="tag">${balTag}</div>
+          </div>
+          <div class="chevron ${isOpen?'open':''}">&#9660;</div>
+        </div>
+        <div class="customer-body ${isOpen?'open':''}">
+          <div class="numbers-grid">
+            <div class="num-box"><div class="lbl">Total Bill</div><div class="val">${fmt(t.totalBill)}</div></div>
+            <div class="num-box"><div class="lbl">Total GST</div><div class="val">${fmt(t.totalGst)}</div></div>
+            <div class="num-box"><div class="lbl">Extra</div><div class="val" style="color:var(--gold)">${fmt(t.totalExtra)}</div></div>
+            <div class="num-box"><div class="lbl">Total Amount</div><div class="val" style="color:var(--gold)">${fmt(t.totalDue)}</div></div>
+          </div>
+          ${isFullyPaid ? `<div class="num-box fully-paid" style="margin-bottom:12px;"><div class="lbl">Status</div><div class="val">✅ Fully Paid</div></div>` : ''}
+
+          <div class="action-row">
+            <button class="whatsapp" onclick="openWaModal('${c.id}')">Send on WhatsApp</button>
+            <button class="secondary" onclick="openShareModal('${c.id}')">Share Link</button>
+          </div>
+          <div class="action-row">
+            <button class="danger" onclick="deleteCustomer('${c.id}')">Delete Customer</button>
+          </div>
+
+          <div class="section-title">📋 Bills</div>
+          ${billsHtml}
+
+          <div class="section-title">➕ Add Bill</div>
+          <button class="add-entry-toggle" onclick="toggleBillForm('${c.id}')">${billFormOpen===c.id ? 'Hide Bill Form' : '+ Add Bill'}</button>
+          <div style="${billFormOpen===c.id ? 'display:block;' : 'display:none;'}">${billFormHtml}</div>
+
+          <div class="section-title">💳 Add Payment</div>
+          <button class="add-entry-toggle" onclick="togglePaymentForm('${c.id}')">${paymentFormOpen===c.id ? 'Hide Payment Form' : '+ Add Payment'}</button>
+          <div style="${paymentFormOpen===c.id ? 'display:block;' : 'display:none;'}">${paymentFormHtml}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ----- Customer View Page (shared link) -----
+function renderCustomerViewPage(tab, id){
+  const container = document.getElementById('customerViewApp');
+  document.getElementById('adminApp').style.display = 'none';
+  container.style.display = 'block';
+  container.innerHTML = `<div class="empty">Loading...</div>`;
+
+  let cdata = null;
+  let trader = '';
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const dataParam = params.get('data');
+    if(dataParam) {
+      const decoded = JSON.parse(decodeURIComponent(dataParam));
+      cdata = {
+        customerName: decoded.customerName,
+        phone: decoded.phone || '',
+        bills: decoded.bills || []
+      };
+      trader = decoded.traderName || '';
+    }
+  } catch(e) {}
+
+  if(!cdata) {
+    try {
+      const raw = localStorage.getItem(`share-${tab}-${id}`);
+      if(raw) {
+        const parsed = JSON.parse(raw);
+        cdata = {
+          customerName: parsed.customerName,
+          phone: parsed.phone || '',
+          bills: parsed.bills || []
+        };
+        trader = localStorage.getItem('share-trader-name') || '';
+      }
+    } catch(e) {}
+  }
+
+  if(!cdata || !cdata.customerName) {
+    container.innerHTML = `<div class="empty">❌ This link is not valid or has expired.<br><br>Please ask the trader to share an updated link.</div>`;
+    return;
+  }
+
+  let totalBill=0, totalGst=0, totalExtra=0, totalPaid=0;
+  cdata.bills.forEach(b => {
+    totalBill += b.billAmt;
+    totalGst += b.gstAmt;
+    totalExtra += b.extraAmt || 0;
+    totalPaid += b.payments.reduce((s,p)=>s+p.amount,0);
+  });
+  const totalDue = totalBill + totalGst + totalExtra;
+  const balance = totalDue - totalPaid;
+  const isFullyPaid = balance === 0 && totalDue > 0;
+
+  const billsHtml = cdata.bills.length ? cdata.bills.map(b => {
+    const paid = b.payments.reduce((s,p)=>s+p.amount,0);
+    const bal = b.total - paid;
+    const paymentsHtml = b.payments.length ? b.payments.map(p => `
+      <div class="payment-row">
+        <span class="pdate">${p.date}</span>
+        <span class="pamount">${fmt(p.amount)}</span>
+      </div>
+    `).join('') : '<div style="color:var(--muted); font-size:11px;">No payments</div>';
+    return `
+      <div class="bill-card">
+        <div class="bill-header">
+          <span class="bill-number">Bill #${b.billNumber}</span>
+          <span class="bill-date">${b.date}</span>
+        </div>
+        <div class="bill-stats">
+          <div>Bill: ${fmt(b.billAmt)}</div>
+          <div>GST: ${fmt(b.gstAmt)}</div>
+          <div>Extra: <span class="extra-tag">${fmt(b.extraAmt||0)}</span></div>
+        </div>
+        <div class="bill-stats">
+          <div>Total: ${fmt(b.total)}</div>
+          <div>Paid: ${fmt(paid)}</div>
+          <div class="bal ${bal===0?'zero':''}">Balance: ${fmt(bal)}</div>
+        </div>
+        <div class="bill-payments">
+          <div style="font-size:10px; color:var(--muted);">Payments:</div>
+          ${paymentsHtml}
+        </div>
+      </div>
+    `;
+  }).join('') : '<div class="empty-entries">No bills</div>';
+
+  const direction = tab==='sale' ? 'Balance Due' : 'Balance Payable to You';
+  let balHtml = `<div class="num-box balance"><div class="lbl">Status</div><div class="val" style="color:var(--muted)">Clear</div></div>`;
+  if(balance > 0) balHtml = `<div class="num-box balance"><div class="lbl">${direction}</div><div class="val" style="color:var(--red)">${fmt(balance)}</div></div>`;
+  else if(balance < 0) balHtml = `<div class="num-box balance"><div class="lbl">Advance Paid</div><div class="val" style="color:var(--green)">${fmt(Math.abs(balance))}</div></div>`;
+  else if(balance === 0 && totalDue > 0) balHtml = `<div class="num-box fully-paid"><div class="lbl">Status</div><div class="val">✅ Fully Paid</div></div>`;
+
+  container.innerHTML = `
+    <div class="trader-box">
+      <div class="trader-label">Business</div>
+      <div class="trader-name">${trader || 'Trading Account'}</div>
+    </div>
+    <div class="customer">
+      <div class="customer-row" style="cursor:default;">
+        <div class="customer-identity">
+          <div class="customer-name">${cdata.customerName}</div>
+          ${cdata.phone ? `<div class="customer-phone">${cdata.phone}</div>` : ''}
+        </div>
+      </div>
+      <div class="customer-body open">
+        <div class="numbers-grid">
+          <div class="num-box"><div class="lbl">Total Bill</div><div class="val">${fmt(totalBill)}</div></div>
+          <div class="num-box"><div class="lbl">Total GST</div><div class="val">${fmt(totalGst)}</div></div>
+          <div class="num-box"><div class="lbl">Extra</div><div class="val" style="color:var(--gold)">${fmt(totalExtra)}</div></div>
+          <div class="num-box"><div class="lbl">Total Amount</div><div class="val" style="color:var(--gold)">${fmt(totalDue)}</div></div>
+        </div>
+        ${balHtml}
+        ${isFullyPaid ? `<div class="num-box fully-paid" style="margin-bottom:12px;"><div class="lbl">Status</div><div class="val">✅ Fully Paid</div></div>` : ''}
+        <div class="section-title">📋 Bills</div>
+        ${billsHtml}
+      </div>
+    </div>
+  `;
+}
+
+// ----- Initialization -----
+function init(){
+  const params = new URLSearchParams(window.location.search);
+  const viewId = params.get('view');
+  const viewTab = params.get('tab');
+  if(viewId && viewTab){
+    renderCustomerViewPage(viewTab, viewId);
+    return;
+  }
+  loadTraderName();
+  loadData();
+}
+
+init();
+</script>
+</body>
+</html>
